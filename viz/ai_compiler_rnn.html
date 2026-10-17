@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --background:#0b0d12; --foreground:#e6e8ee; --muted-foreground:#9aa3b2; --card:#141821; --card-foreground:#e6e8ee;
+    --secondary:#1e2430; --secondary-foreground:#e6e8ee; --border:#2a3140; --primary:#e6e8ee; --primary-foreground:#0b0d12;
+    --accent:#5b9dff; --accent-surface:#1b2a45; --accent-surface-foreground:#bcd4ff;
+    --code-background:#0f1218; --code-foreground:#d6dae3; --radius:10px;
+    --chart-1:#5b9dff; --chart-2:#2fc6a4; --chart-3:#e3b341; --chart-4:#b48cff; --chart-5:#ff7a8a;
+    --font-sans:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;
+    --font-mono:"SF Mono",Menlo,Consolas,monospace;
+  }
+  html { background: var(--background); }
+  body { max-width: 900px; margin: 24px auto !important; padding: 0 16px; }
+    * { box-sizing: border-box; }
+  body { font-family: var(--font-sans); color: var(--foreground); }
+  .wrap { width: 100%; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tab { border: 1px solid var(--border); background: transparent; color: var(--muted-foreground);
+         padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; }
+  .tab.on { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+  .panel { display: none; }
+  .panel.on { display: block; }
+  .ctrl { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--border); background: var(--secondary); color: var(--secondary-foreground);
+         padding: 5px 12px; border-radius: calc(var(--radius) - 2px); cursor: pointer; font: inherit; font-size: 13px; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.play { background: var(--accent-surface); color: var(--accent-surface-foreground); }
+  .dots { display: flex; gap: 4px; margin-left: auto; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; }
+  .dot.on { background: var(--accent); }
+  .card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border);
+          border-radius: var(--radius); padding: 16px; }
+  .title { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+  .desc { font-size: 13.5px; line-height: 1.65; color: var(--muted-foreground); }
+  .desc b { color: var(--foreground); font-weight: 600; }
+  pre.code { font-family: var(--font-mono); font-size: 12px; line-height: 1.55; background: var(--code-background);
+             color: var(--code-foreground); border-radius: calc(var(--radius) - 2px); padding: 12px 0; margin: 10px 0 0;
+             overflow-x: auto; }
+  pre.code .ln { padding: 0 12px; white-space: pre; transition: background .3s, opacity .3s; display: block; }
+  pre.code .ln.hl { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  pre.code.focus .ln:not(.hl) { opacity: .45; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 620px) { .grid2 { grid-template-columns: 1fr; } }
+  .grid2.stack { grid-template-columns: 1fr; }
+  .fade { animation: fade .45s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* graph */
+  .ghost { position: relative; }
+  .ghost svg { position: absolute; inset: 0; overflow: visible; }
+  .gn { position: absolute; height: 44px; border-radius: 8px; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center; font-size: 12px; font-weight: 600;
+        border: 1.5px solid; line-height: 1.15; padding: 0 4px; }
+  .gn small { font-weight: 400; font-size: 10px; opacity: .85; margin-top: 2px; }
+  .gn.input  { background: color-mix(in srgb, var(--chart-1) 18%, var(--card)); border-color: var(--chart-1); }
+  .gn.weight { background: color-mix(in srgb, var(--chart-3) 16%, var(--card)); border-color: var(--chart-3); border-style: dashed; }
+  .gn.op     { background: color-mix(in srgb, var(--chart-2) 16%, var(--card)); border-color: var(--chart-2); }
+  .gn.fused  { background: color-mix(in srgb, var(--chart-4) 26%, var(--card)); border-color: var(--chart-4); border-width: 2.5px; }
+  .gn.out    { background: color-mix(in srgb, var(--chart-5) 18%, var(--card)); border-color: var(--chart-5); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted-foreground); margin: 6px 0; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+                         margin-right: 5px; vertical-align: -1px; border: 1.5px solid var(--c); }
+
+  /* pipeline */
+  .pipe { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chip { font-size: 11.5px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+          color: var(--muted-foreground); cursor: pointer; background: transparent; font-family: inherit; }
+  .chip.on { color: var(--foreground); border-color: var(--g); background: color-mix(in srgb, var(--g) 20%, transparent); font-weight: 600; }
+  .chip.done { color: var(--foreground); }
+  .phase { font-size: 11px; letter-spacing: .04em; color: var(--g); font-weight: 700; margin-bottom: 2px; }
+
+  /* rnn svg */
+  .rnnsvg text { font-family: var(--font-sans); fill: var(--foreground); }
+  .rnnsvg .cell { fill: var(--card); stroke: var(--chart-2); stroke-width: 1.5; transition: fill .3s; }
+  .rnnsvg .cell.on { fill: color-mix(in srgb, var(--chart-2) 30%, var(--card)); stroke-width: 2.5; }
+  .rnnsvg .cell.shared { fill: color-mix(in srgb, var(--chart-4) 25%, var(--card)); stroke: var(--chart-4); }
+  .rnnsvg .xbox { fill: color-mix(in srgb, var(--chart-1) 18%, var(--card)); stroke: var(--chart-1); }
+  .rnnsvg .hbox { fill: color-mix(in srgb, var(--chart-5) 18%, var(--card)); stroke: var(--chart-5); transition: opacity .3s; }
+  .rnnsvg .ar { stroke: var(--muted-foreground); stroke-width: 1.5; fill: none; }
+  .rnnsvg .muted { fill: var(--muted-foreground); font-size: 11px; }
+  .calc { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; }
+  .calc .v { color: var(--accent); font-weight: 600; }
+
+  table.t { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  table.t td, table.t th { border-bottom: 1px solid var(--border); padding: 5px 6px; text-align: left; }
+  table.t th { color: var(--muted-foreground); font-weight: 500; }
+  table.t td.m { font-family: var(--font-mono); }
+  .flow { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+  .flow .row { display: flex; align-items: center; gap: 8px; }
+  .pill { font-family: var(--font-mono); font-size: 11.5px; padding: 3px 7px; border-radius: 6px;
+          background: var(--secondary); color: var(--secondary-foreground); }
+  .tl { margin: 8px 0 4px; }
+  .tl .lab { font-size: 12px; color: var(--muted-foreground); margin-bottom: 4px; }
+  .tl .bar { display: flex; flex-wrap: wrap; gap: 2px; }
+  .tl .k { height: 18px; border-radius: 3px; animation: pop .25s ease both; }
+  @keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-t="0">① RNN 是什麼</button>
+    <button class="tab" data-t="1">② PyTorch → ONNX 長怎樣</button>
+    <button class="tab" data-t="2">③ AI Compiler 怎麼編譯</button>
+  </div>
+
+  <!-- TAB 1 -->
+  <div class="panel on" id="p0">
+    <div class="ctrl" id="c0"></div>
+    <svg class="rnnsvg" viewBox="0 0 760 300" width="100%" style="display:block">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted-foreground)"/></marker></defs>
+      <g id="rnnG"></g>
+    </svg>
+    <div class="card" id="d0"></div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div class="panel" id="p1">
+    <div class="ctrl" id="c1"></div>
+    <div class="grid2" id="grid1">
+      <div><pre class="code focus" id="py"></pre></div>
+      <div class="card" id="r1" style="min-height:300px"></div>
+    </div>
+  </div>
+
+  <!-- TAB 3 -->
+  <div class="panel" id="p2">
+    <div class="pipe" id="pipe"></div>
+    <div class="ctrl" id="c2"></div>
+    <div class="legend">
+      <span style="--c:var(--chart-1)">輸入</span><span style="--c:var(--chart-3)">權重 (常數)</span>
+      <span style="--c:var(--chart-2)">運算 op</span><span style="--c:var(--chart-4)">融合後 kernel</span><span style="--c:var(--chart-5)">輸出</span>
+    </div>
+    <div class="ghost" id="g2"></div>
+    <div class="card" id="d2" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+/* ---------- generic stepper ---------- */
+function stepper(host, n, onStep, autoMs = 2600) {
+  host.innerHTML = `<button class="btn" data-a="prev">◀ 上一步</button><button class="btn" data-a="next">下一步 ▶</button>
+    <button class="btn play" data-a="play">▶ 自動播放</button><div class="dots"></div>`;
+  const dots = host.querySelector('.dots');
+  for (let i = 0; i < n; i++) { const d = document.createElement('div'); d.className = 'dot'; d.onclick = () => { stop(); go(i); }; dots.appendChild(d); }
+  let cur = 0, timer = null;
+  const pb = host.querySelector('[data-a=play]');
+  function go(i) {
+    cur = Math.max(0, Math.min(n - 1, i));
+    host.querySelector('[data-a=prev]').disabled = cur === 0;
+    host.querySelector('[data-a=next]').disabled = cur === n - 1;
+    [...dots.children].forEach((d, k) => d.classList.toggle('on', k === cur));
+    onStep(cur);
+  }
+  function stop() { clearInterval(timer); timer = null; pb.textContent = '▶ 自動播放'; }
+  host.querySelector('[data-a=prev]').onclick = () => { stop(); go(cur - 1); };
+  host.querySelector('[data-a=next]').onclick = () => { stop(); go(cur + 1); };
+  pb.onclick = () => {
+    if (timer) return stop();
+    if (cur === n - 1) go(0);
+    pb.textContent = '⏸ 暫停';
+    timer = setInterval(() => { if (cur >= n - 1) stop(); else go(cur + 1); }, autoMs);
+  };
+  go(0);
+  return { go, get cur() { return cur; } };
+}
+
+function codeBlock(pre, text, hl = []) {
+  pre.innerHTML = '';
+  text.split('\n').forEach((l, i) => {
+    const d = document.createElement('span'); d.className = 'ln' + (hl.includes(i + 1) ? ' hl' : '');
+    d.textContent = l || ' '; pre.appendChild(d);
+  });
+}
+
+/* ---------- graph engine (animated) ---------- */
+function makeGraph(host, H) {
+  host.style.height = H + 'px';
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('width', '100%'); svg.setAttribute('height', H);
+  svg.innerHTML = `<defs><marker id="ga${H}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+     <path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted-foreground)"/></marker></defs><g class="grp"></g><g class="edg"></g>`;
+  host.appendChild(svg);
+  const gGrp = svg.querySelector('.grp'), gEdg = svg.querySelector('.edg');
+  const els = {}, pos = {};
+  let stage = null, raf = 0;
+  const NH = 44, nw = () => Math.min(118, host.clientWidth * 0.21);
+
+  function place(id, fx, y, op) {
+    const W = host.clientWidth, w = nw(), el = els[id];
+    el.style.width = w + 'px'; el.style.left = (fx * W - w / 2) + 'px'; el.style.top = (y - NH / 2) + 'px';
+    if (op != null) el.style.opacity = op;
+  }
+  function edgePath(a, b) {
+    const W = host.clientWidth, w = nw();
+    const ax = a.fx * W, ay = a.y, bx = b.fx * W, by = b.y;
+    if (by - ay > 30) {
+      const sy = ay + NH / 2, ey = by - NH / 2, m = (ey - sy) / 2;
+      return [`M${ax},${sy} C${ax},${sy + m} ${bx},${ey - m} ${bx},${ey}`, false];
+    }
+    if (Math.abs(by - ay) <= 30) {
+      const s = bx > ax ? 1 : -1;
+      return [`M${ax + s * w / 2},${ay} L${bx - s * w / 2},${by}`, false];
+    }
+    const sx = ax + w / 2, ex = bx + w / 2;
+    return [`M${sx},${ay} C${sx + 60},${ay} ${ex + 60},${by} ${ex},${by}`, true];
+  }
+  function drawEdges(op) {
+    if (!stage) return;
+    const W = host.clientWidth;
+    gGrp.innerHTML = (stage.groups || []).map(g =>
+      `<g style="opacity:${op}"><rect x="${g.x0 * W}" y="${g.y0}" width="${(g.x1 - g.x0) * W}" height="${g.y1 - g.y0}" rx="10"
+        style="fill:color-mix(in srgb, var(--chart-2) 6%, transparent);stroke:var(--chart-2);stroke-dasharray:5 4;stroke-width:1.2"/>
+       <text x="${g.x0 * W + 8}" y="${g.y0 + 15}" style="fill:var(--chart-2);font-size:11px;font-weight:600;font-family:var(--font-sans)">${g.label}</text></g>`).join('');
+    gEdg.innerHTML = stage.edges.map(([a, b, lab]) => {
+      if (!pos[a] || !pos[b]) return '';
+      const [d, loop] = edgePath(pos[a], pos[b]);
+      return `<path d="${d}" marker-end="url(#ga${H})" style="fill:none;stroke:var(--muted-foreground);stroke-width:1.4;opacity:${op};${loop ? 'stroke-dasharray:4 3' : ''}"/>` +
+        (lab ? `<text x="${(pos[a].fx * W + pos[b].fx * W) / 2 + 64}" y="${(pos[a].y + pos[b].y) / 2}" style="fill:var(--muted-foreground);font-size:10px;opacity:${op};font-family:var(--font-sans)">${lab}</text>` : '');
+    }).join('');
+  }
+  function setStage(st, animate = true) {
+    cancelAnimationFrame(raf);
+    const prevIds = Object.keys(els);
+    const from = {}, to = {}, born = [], dying = [];
+    for (const [id, [fx, y, label, kind, sub]] of Object.entries(st.nodes)) {
+      if (!els[id]) {
+        const el = document.createElement('div'); host.appendChild(el); els[id] = el; born.push(id);
+        const src = st.born && st.born[id] && pos[st.born[id]];
+        pos[id] = src ? { ...src } : { fx, y };
+        el.style.opacity = 0;
+      }
+      els[id].className = 'gn ' + kind;
+      els[id].innerHTML = label + (sub ? `<small>${sub}</small>` : '');
+      from[id] = { ...pos[id] }; to[id] = { fx, y };
+    }
+    for (const id of prevIds) if (!st.nodes[id]) {
+      dying.push(id); from[id] = { ...pos[id] };
+      const m = st.merge && st.merge[id] && st.nodes[st.merge[id]];
+      to[id] = m ? { fx: m[0], y: m[1] } : { ...pos[id] };
+    }
+    stage = st;
+    const T = animate ? 800 : 1, t0 = performance.now();
+    const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / T), e = ease(t);
+      for (const id in to) {
+        pos[id] = { fx: from[id].fx + (to[id].fx - from[id].fx) * e, y: from[id].y + (to[id].y - from[id].y) * e };
+        let op = null;
+        if (born.includes(id)) op = Math.max(0, (e - .35) / .65);
+        else if (dying.includes(id)) op = 1 - e;
+        else op = 1;
+        place(id, pos[id].fx, pos[id].y, op);
+      }
+      drawEdges(e);
+      if (t < 1) raf = requestAnimationFrame(frame);
+      else dying.forEach(id => { els[id].remove(); delete els[id]; delete pos[id]; });
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  new ResizeObserver(() => { for (const id in els) place(id, pos[id].fx, pos[id].y); drawEdges(1); }).observe(host);
+  return { setStage };
+}
+
+/* ================= TAB 1: RNN ================= */
+(function () {
+  const xs = [1.0, 0.5, -1.0, 0.8];
+  const Wx = [0.8, -0.5], Wh = [[0.5, -0.3], [0.2, 0.6]], b = [0.1, 0.0];
+  const hs = [[0, 0]];
+  xs.forEach(x => {
+    const h = hs[hs.length - 1];
+    hs.push([0, 1].map(i => Math.tanh(Wx[i] * x + Wh[i][0] * h[0] + Wh[i][1] * h[1] + b[i])));
+  });
+  const f = v => (v >= 0 ? ' ' : '') + v.toFixed(2);
+  const vec = v => `[${v.map(f).join(',')}]`;
+  const cx = i => 150 + i * 170, CY = 150;
+  const G = $('#rnnG');
+  let s = `<text x="34" y="${CY + 4}" text-anchor="middle" style="font-size:12px">h₀</text>
+           <text x="34" y="${CY + 20}" text-anchor="middle" class="muted">[0,0]</text>
+           <line class="ar" x1="52" y1="${CY}" x2="${cx(0) - 58}" y2="${CY}" marker-end="url(#ah)"/>`;
+  xs.forEach((x, i) => {
+    s += `<rect class="cell" id="cell${i}" x="${cx(i) - 55}" y="${CY - 32}" width="110" height="64" rx="10"/>
+      <text x="${cx(i)}" y="${CY - 6}" text-anchor="middle" style="font-size:13px;font-weight:600">RNN Cell</text>
+      <text x="${cx(i)}" y="${CY + 14}" text-anchor="middle" class="muted" id="ct${i}">t = ${i + 1}</text>
+      <rect class="xbox" x="${cx(i) - 34}" y="252" width="68" height="34" rx="7"/>
+      <text x="${cx(i)}" y="274" text-anchor="middle" style="font-size:12.5px">x${'₁₂₃₄'[i]} = ${x}</text>
+      <line class="ar" x1="${cx(i)}" y1="252" x2="${cx(i)}" y2="${CY + 34}" marker-end="url(#ah)"/>
+      <g id="ho${i}" style="opacity:0;transition:opacity .4s">
+        <rect class="hbox" x="${cx(i) - 52}" y="14" width="104" height="38" rx="7"/>
+        <text x="${cx(i)}" y="30" text-anchor="middle" style="font-size:11.5px;font-weight:600">h${'₁₂₃₄'[i]}</text>
+        <text x="${cx(i)}" y="45" text-anchor="middle" style="font-size:10.5px;font-family:var(--font-mono)">${vec(hs[i + 1])}</text>
+      </g>
+      <line class="ar" x1="${cx(i)}" y1="${CY - 32}" x2="${cx(i)}" y2="54" marker-end="url(#ah)"/>`;
+    if (i < 3) s += `<line class="ar" x1="${cx(i) + 55}" y1="${CY}" x2="${cx(i + 1) - 58}" y2="${CY}" marker-end="url(#ah)"/>
+      <text x="${cx(i) + 85}" y="${CY - 8}" text-anchor="middle" class="muted">h${'₁₂₃'[i]}</text>`;
+  });
+  s += `<circle id="pulseA" r="6" style="fill:var(--chart-1);opacity:0"/><circle id="pulseB" r="6" style="fill:var(--chart-4);opacity:0"/>
+        <text id="shareTxt" x="380" y="218" text-anchor="middle" style="font-size:12.5px;fill:var(--chart-4);font-weight:600;opacity:0;transition:opacity .4s">↑ 4 顆 cell 其實是「同一顆」，共用同一組權重 Wₓ、Wₕ、b ↑</text>`;
+  G.innerHTML = s;
+
+  let raf;
+  function pulse(i) {
+    cancelAnimationFrame(raf);
+    const A = $('#pulseA'), B = $('#pulseB'), t0 = performance.now();
+    const fromBx = i === 0 ? 52 : cx(i - 1) + 55;
+    (function fr(now) {
+      const t = Math.min(1, (now - t0) / 900);
+      A.setAttribute('cx', cx(i)); A.setAttribute('cy', 252 - (252 - CY - 34) * t); A.style.opacity = t < 1 ? 1 : 0;
+      B.setAttribute('cx', fromBx + (cx(i) - 58 - fromBx) * t); B.setAttribute('cy', CY); B.style.opacity = t < 1 ? 1 : 0;
+      if (t < 1) raf = requestAnimationFrame(fr);
+    })(t0);
+  }
+  const d0 = $('#d0');
+  stepper($('#c0'), 6, st => {
+    for (let i = 0; i < 4; i++) {
+      $('#cell' + i).classList.toggle('on', st === i + 1);
+      $('#cell' + i).classList.toggle('shared', st === 5);
+      $('#ho' + i).style.opacity = (st === 5 || (st >= 1 && i < st)) ? 1 : 0;
+    }
+    $('#shareTxt').style.opacity = st === 5 ? 1 : 0;
+    if (st >= 1 && st <= 4) pulse(st - 1);
+    let html;
+    if (st === 0) html = `<div class="title">RNN = 有「記憶」的神經網路</div><div class="desc">
+      一般的網路一次吃一筆資料就結束；<b>RNN（Recurrent Neural Network）</b>用來處理<b>序列</b>：文字、語音、股價、感測器訊號…<br>
+      它一次只讀一個時間點 <b>xₜ</b>，同時把上一步的「記憶」<b>hₜ₋₁</b>（hidden state）一起丟進同一顆 cell，產生新的記憶 <b>hₜ</b>。<br><br>
+      這個例子：輸入序列 <b>[1.0, 0.5, -1.0, 0.8]</b>，hidden size = 2（記憶是長度 2 的向量）。按「下一步」看它一步步算。</div>
+      <div class="calc" style="margin-top:10px">hₜ = tanh( Wₓ · xₜ  +  Wₕ · hₜ₋₁  +  b )</div>`;
+    else if (st <= 4) {
+      const i = st - 1, x = xs[i], hp = hs[i], h = hs[i + 1];
+      const pre = [0, 1].map(k => Wx[k] * x + Wh[k][0] * hp[0] + Wh[k][1] * hp[1] + b[k]);
+      html = `<div class="title">時間步 t = ${st}：讀入 x${'₁₂₃₄'[i]} = ${x}，加上記憶 h${'₀₁₂₃'[i]}</div>
+      <div class="calc">
+        Wₓ·x  = [0.8, -0.5] × ${x}  = ${vec(Wx.map(w => w * x))}<br>
+        Wₕ·h  = [[0.5,-0.3],[0.2,0.6]] · ${vec(hp)} = ${vec([0, 1].map(k => Wh[k][0] * hp[0] + Wh[k][1] * hp[1]))}<br>
+        + b   = [0.1, 0.0]<br>
+        相加  = ${vec(pre)}<br>
+        tanh → h${'₁₂₃₄'[i]} = <span class="v">${vec(h)}</span></div>
+      <div class="desc" style="margin-top:6px">${st < 4 ? '這個 h 會往右傳給下一個時間步 → 這就是「記憶」。' : '最後的 h₄ 濃縮了整段序列的資訊，通常再接一層 Linear 做分類／預測。'}</div>`;
+    } else html = `<div class="title">重點：時間上「展開」，但權重只有一組</div><div class="desc">
+      圖上畫成 4 顆是為了好懂，實際上程式裡只有<b>一顆 cell、一組權重</b>，跑一個 <b>for 迴圈</b>：<br>
+      <span class="calc">h = 0<br>for x in 序列: h = tanh(Wₓ·x + Wₕ·h + b)</span><br><br>
+      這對 AI compiler 很重要：RNN 本質是<b>帶依賴的迴圈</b>（第 t 步要等第 t-1 步算完），不能像 CNN 那樣全部平行，
+      所以編譯器會想辦法把<b>不依賴 h 的部分（Wₓ·x）拉出迴圈一次算完</b>、把迴圈內的小運算<b>融合</b>。到第 ③ 頁看它怎麼做。</div>`;
+    d0.innerHTML = `<div class="fade">${html}</div>`;
+  }, 2600);
+})();
+
+/* ================= TAB 2: PyTorch -> ONNX ================= */
+const PY = `import torch
+import torch.nn as nn
+
+class TinyRNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.rnn = nn.RNN(input_size=1, hidden_size=2)
+        self.fc  = nn.Linear(2, 1)
+
+    def forward(self, x):          # x: [T, batch, 1]
+        out, h_n = self.rnn(x)     # h_n: [1, batch, 2]
+        return self.fc(h_n[-1])    # -> [batch, 1]
+
+model = TinyRNN().eval()
+dummy = torch.randn(5, 1, 1)       # 一條長度 T=5 的序列
+torch.onnx.export(model, dummy, "tiny_rnn.onnx",
+                  input_names=["x"], output_names=["y"])`;
+
+const ONNX_STAGE = {
+  nodes: {
+    x: [0.14, 30, 'x', 'input', 'float[5,1,1]'], W: [0.38, 30, 'W', 'weight', '[1,2,1]'],
+    R: [0.62, 30, 'R', 'weight', '[1,2,2]'], B: [0.86, 30, 'B', 'weight', '[1,4]'],
+    rnn: [0.5, 130, 'RNN', 'op', 'hidden_size=2, Tanh'], sq: [0.5, 225, 'Squeeze', 'op', 'Y_h → [1,2]'],
+    wfc: [0.86, 225, 'fc.weight / bias', 'weight', '[1,2] / [1]'], gemm: [0.5, 320, 'Gemm', 'op', 'transB=1 (=Linear)'],
+    y: [0.5, 405, 'y', 'out', 'float[1,1]']
+  },
+  edges: [['x', 'rnn'], ['W', 'rnn'], ['R', 'rnn'], ['B', 'rnn'], ['rnn', 'sq'], ['sq', 'gemm'], ['wfc', 'gemm'], ['gemm', 'y']]
+};
+
+(function () {
+  const pre = $('#py'), r = $('#r1');
+  const steps = [
+    { hl: [4, 5, 6, 7, 8], h: `<div class="title">1. 用 PyTorch 定義模型</div><div class="desc">
+        PyTorch 模型就是一個繼承 <b>nn.Module</b> 的 Python class：在 <b>__init__</b> 宣告「有哪些層」，在 <b>forward</b> 寫「資料怎麼流」。<br><br>
+        這裡只有兩層：</div>
+        <div class="flow" style="margin-top:8px">
+          <div class="row"><span class="pill">TinyRNN</span></div>
+          <div class="row" style="padding-left:18px">├ <span class="pill">rnn: nn.RNN(1 → 2)</span></div>
+          <div class="row" style="padding-left:18px">└ <span class="pill">fc: nn.Linear(2 → 1)</span></div></div>
+        <div class="desc" style="margin-top:8px">這就是第 ① 頁那顆 RNN cell + 最後一層輸出。</div>` },
+    { hl: [10, 11, 12], h: `<div class="title">2. forward：tensor 形狀怎麼變</div><div class="desc">PyTorch RNN 預設輸入是 <b>[序列長度 T, batch, 特徵數]</b>。</div>
+        <div class="flow" style="margin-top:10px">
+          <div class="row"><span class="pill">x  [5, 1, 1]</span> 5 個時間步、batch 1、每步 1 個數字</div>
+          <div class="row">↓ self.rnn</div>
+          <div class="row"><span class="pill">out [5, 1, 2]</span> 每一步的 h</div>
+          <div class="row"><span class="pill">h_n [1, 1, 2]</span> 只有最後一步的 h</div>
+          <div class="row">↓ h_n[-1]</div>
+          <div class="row"><span class="pill">[1, 2]</span></div>
+          <div class="row">↓ self.fc</div>
+          <div class="row"><span class="pill">y [1, 1]</span> 最終預測</div></div>
+        <div class="desc" style="margin-top:8px">注意：forward 裡<b>看不到 for 迴圈</b>，迴圈藏在 nn.RNN 內部（C++/CUDA 實作）。</div>` },
+    { hl: [7, 8], h: `<div class="title">3. 模型「本體」其實就是這些數字</div><div class="desc"><code>model.state_dict()</code> 會列出所有可訓練參數：</div>
+        <table class="t" style="margin-top:8px"><tr><th>名稱</th><th>shape</th><th>對應公式</th></tr>
+          <tr><td class="m">rnn.weight_ih_l0</td><td class="m">[2, 1]</td><td>Wₓ</td></tr>
+          <tr><td class="m">rnn.weight_hh_l0</td><td class="m">[2, 2]</td><td>Wₕ</td></tr>
+          <tr><td class="m">rnn.bias_ih_l0</td><td class="m">[2]</td><td>b (input)</td></tr>
+          <tr><td class="m">rnn.bias_hh_l0</td><td class="m">[2]</td><td>b (hidden)</td></tr>
+          <tr><td class="m">fc.weight</td><td class="m">[1, 2]</td><td>Linear</td></tr>
+          <tr><td class="m">fc.bias</td><td class="m">[1]</td><td>Linear</td></tr></table>
+        <div class="desc" style="margin-top:8px">總共才 <b>13 個參數</b>。.pt 檔 = 這些 tensor；<b>但 .pt 不含「怎麼算」的結構</b>，結構在 Python 程式碼裡。</div>` },
+    { hl: [14, 15, 16, 17], h: `<div class="title">4. torch.onnx.export：把「怎麼算」也存下來</div><div class="desc">
+        export 會拿 <b>dummy</b> 實際跑一次 forward，<b>錄下</b>經過的每個運算（tracing / 新版用 torch.export 抓圖），翻譯成 ONNX 標準運算子：</div>
+        <div class="flow" style="margin-top:10px" id="trace"></div>
+        <div class="desc" style="margin-top:8px">權重也會被重新打包成 ONNX 規格：<br>
+        W = weight_ih → <b>[1,2,1]</b>（多一維給「方向」）<br>R = weight_hh → <b>[1,2,2]</b><br>B = concat(bias_ih, bias_hh) → <b>[1,4]</b></div>` },
+    { hl: [16, 17], h: `<div class="title">5. tiny_rnn.onnx 打開長這樣（類似 Netron 看到的圖）</div>
+        <div class="desc">ONNX 是一張<b>計算圖</b>：方框是運算（node），虛線框是常數權重（initializer），箭頭是 tensor。</div>
+        <div class="ghost" id="g1" style="margin-top:8px"></div>` },
+    { hl: [16, 17], h: `<div class="title">6. 檔案裡實際的結構（protobuf）</div>
+        <pre class="code" id="onnxtxt"></pre>
+        <div class="desc" style="margin-top:8px">重點：ONNX <b>跟 Python / PyTorch 無關</b>了，任何框架、任何編譯器都能讀。
+        這正是 AI compiler 的<b>輸入</b> → 去第 ③ 頁。</div>` },
+  ];
+  stepper($('#c1'), steps.length, i => {
+    $('#grid1').classList.toggle('stack', i === 4);
+    codeBlock(pre, PY, steps[i].hl);
+    r.innerHTML = `<div class="fade">${steps[i].h}</div>`;
+    if (i === 3) {
+      const ops = [['onnx::RNN', 'self.rnn(x)'], ['onnx::Squeeze', 'h_n[-1]'], ['onnx::Gemm', 'self.fc(...)']];
+      ops.forEach((o, k) => setTimeout(() => {
+        const t = $('#trace'); if (!t) return;
+        t.insertAdjacentHTML('beforeend', `<div class="row fade">● 錄到 <span class="pill">${o[1]}</span> → <span class="pill" style="background:var(--accent-surface);color:var(--accent-surface-foreground)">${o[0]}</span></div>`);
+      }, 400 + k * 600));
+    }
+    if (i === 4) { const g = makeGraph($('#g1'), 440); g.setStage(ONNX_STAGE, false); }
+    if (i === 5) codeBlock($('#onnxtxt'), `ModelProto  (opset 17)
+└ graph "main_graph"
+  ├ input        x : float[5,1,1]
+  ├ initializer  W[1,2,1]  R[1,2,2]  B[1,4]
+  │              fc.weight[1,2]  fc.bias[1]
+  ├ node RNN(x, W, R, B) -> (Y, Y_h)
+  │      hidden_size=2  activations=["Tanh"]
+  ├ node Squeeze(Y_h) -> h
+  ├ node Gemm(h, fc.weight, fc.bias) -> y
+  │      transB=1
+  └ output       y : float[1,1]`);
+  }, 3200);
+})();
+
+/* ================= TAB 3: AI Compiler ================= */
+(function () {
+  const PH = { fe: ['前端 Frontend', 'var(--chart-1)'], go: ['圖最佳化 Graph Opt', 'var(--chart-2)'],
+               lo: ['Lowering / 迴圈最佳化', 'var(--chart-3)'], be: ['後端 Codegen', 'var(--chart-4)'], rt: ['Runtime', 'var(--chart-5)'] };
+  const base = { x: [0.14, 30, 'x', 'input', 'f32[5,1,1]'], wfc: [0.86, 365, 'fc.w / fc.b', 'weight', 'const'],
+                 gemm: [0.5, 365, 'Gemm', 'op', 'Linear'], y: [0.5, 440, 'y', 'out', 'f32[1,1]'] };
+  const S0 = {
+    nodes: { ...base, W: [0.38, 30, 'W', 'weight', '[1,2,1]'], R: [0.62, 30, 'R', 'weight', '[1,2,2]'], B: [0.86, 30, 'B', 'weight', '[1,4]'],
+      rnn: [0.5, 140, 'RNN', 'op', '一顆大 op（黑盒子）'], sq: [0.5, 255, 'Squeeze', 'op', ''] },
+    edges: [['x', 'rnn'], ['W', 'rnn'], ['R', 'rnn'], ['B', 'rnn'], ['rnn', 'sq'], ['sq', 'gemm'], ['wfc', 'gemm'], ['gemm', 'y']]
+  };
+  const S1 = JSON.parse(JSON.stringify(S0));
+  S1.nodes.rnn[4] = '→ f32[1,1,2]'; S1.nodes.sq[4] = 'f32[1,1,2] → f32[1,2]'; S1.nodes.gemm[4] = 'f32[1,2] → f32[1,1]';
+  const loopEdges = [['add', 'tanh'], ['tanh', 'mm2', 'h (下一步)'], ['tanh', 'gemm', ''], ['wfc', 'gemm'], ['gemm', 'y']];
+  const S2 = {
+    nodes: { ...base, W: [0.38, 30, 'W', 'weight', '[2,1]'], R: [0.62, 30, 'R', 'weight', '[2,2]'], B: [0.86, 30, 'b_ih, b_hh', 'weight', '[2], [2]'],
+      mm1: [0.2, 140, 'MatMul', 'op', 'xₜ · Wᵀ'], mm2: [0.6, 140, 'MatMul', 'op', 'h · Rᵀ'],
+      add: [0.4, 215, 'Add ×3', 'op', '+ b_ih + b_hh'], tanh: [0.4, 285, 'Tanh', 'op', '→ 新的 h'] },
+    groups: [{ x0: 0.03, x1: 0.8, y0: 98, y1: 316, label: 'Loop  t = 1 … 5（每步都跑一次）' }],
+    edges: [['x', 'mm1'], ['W', 'mm1'], ['R', 'mm2'], ['mm1', 'add'], ['mm2', 'add'], ['B', 'add'], ...loopEdges],
+    merge: { rnn: 'add', sq: 'gemm' }
+  };
+  const S3 = {
+    nodes: { ...base, W: [0.38, 30, 'W', 'weight', '[2,1]'], R: [0.62, 30, 'R', 'weight', '[2,2]'], B: [0.86, 30, "B′", 'weight', '= b_ih+b_hh 已算好'],
+      mm1: [0.2, 130, 'MatMul', 'op', 'X·Wᵀ 一次算 5 步'], mm2: [0.68, 215, 'MatMul', 'op', 'h · Rᵀ'],
+      add: [0.45, 215, 'Add ×2', 'op', '+ XW[t] + B′'], tanh: [0.45, 285, 'Tanh', 'op', '→ 新的 h'] },
+    groups: [{ x0: 0.3, x1: 0.84, y0: 172, y1: 318, label: 'Loop t = 1 … 5' }],
+    edges: [['x', 'mm1'], ['W', 'mm1'], ['R', 'mm2'], ['mm1', 'add'], ['mm2', 'add'], ['B', 'add'], ['add', 'tanh'], ['tanh', 'mm2', 'h'], ['tanh', 'gemm'], ['wfc', 'gemm'], ['gemm', 'y']]
+  };
+  const S4 = {
+    nodes: { ...base, W: S3.nodes.W, R: S3.nodes.R, B: S3.nodes.B, mm1: S3.nodes.mm1,
+      fused: [0.56, 260, 'Fused RNN Cell', 'fused', 'MatMul+Add+Tanh → 1 kernel'] },
+    groups: [{ x0: 0.3, x1: 0.84, y0: 205, y1: 315, label: 'Loop t = 1 … 5' }],
+    edges: [['x', 'mm1'], ['W', 'mm1'], ['mm1', 'fused'], ['R', 'fused'], ['B', 'fused'], ['fused', 'fused', ''], ['fused', 'gemm'], ['wfc', 'gemm'], ['gemm', 'y']],
+    merge: { mm2: 'fused', add: 'fused', tanh: 'fused' }
+  };
+  S4.edges = S4.edges.filter(e => e[0] !== e[1]);
+
+  const stages = [
+    { ph: 'fe', name: '讀入模型', g: S0, hl: [], code: `graph tiny_rnn (x: float[5,1,1]) -> y: float[1,1]
+  initializers: W[1,2,1]  R[1,2,2]  B[1,4]  fc.w  fc.b
+  Y, Y_h = RNN(x, W, R, B)    hidden_size=2
+  h      = Squeeze(Y_h)
+  y      = Gemm(h, fc.w, fc.b)  transB=1`,
+      d: `AI compiler（TVM、MLIR/IREE、XLA、TensorRT、各家 NPU 的 SDK…）的工作，跟 C 編譯器把 C 變成機器碼一樣：
+          把<b>「模型」</b>變成<b>「某顆晶片上跑得最快的程式」</b>。第一步：<b>Frontend</b> 解析 tiny_rnn.onnx（protobuf），讀出節點、權重、形狀。` },
+    { ph: 'fe', name: '轉成高階 IR', g: S1, hl: [5, 6, 7, 8], code: `func.func @main(%x: tensor<5x1x1xf32>) -> tensor<1x1xf32> {
+  %W = arith.constant dense<...> : tensor<1x2x1xf32>
+  %R = arith.constant dense<...> : tensor<1x2x2xf32>
+  %B = arith.constant dense<...> : tensor<1x4xf32>
+  %Y, %Yh = "onnx.RNN"(%x, %W, %R, %B) {hidden_size = 2}
+          : (...) -> (tensor<5x1x1x2xf32>, tensor<1x1x2xf32>)
+  %h = "onnx.Squeeze"(%Yh) : tensor<1x1x2xf32> -> tensor<1x2xf32>
+  %y = "onnx.Gemm"(%h, %Wfc, %bfc) {transB = 1}
+  return %y : tensor<1x1xf32>
+}`,
+      d: `轉成編譯器自己的 <b>IR（中間表示）</b>，這裡用 MLIR 風格。關鍵是<b>形狀推導</b>：每個 tensor 的 shape、dtype 都確定了，
+          編譯器之後才能事先算好要多少記憶體、迴圈要跑幾次。` },
+    { ph: 'go', name: '拆解 RNN', g: S2, hl: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11], code: `%h0 = tensor.zeros [1,2]
+%hT = scf.for %t = 0 to 5 iter_args(%h = %h0) {
+  %xt = tensor.extract_slice %x[%t]      // [1,1]
+  %a  = linalg.matmul %xt, %Wᵀ            // [1,2]
+  %b  = linalg.matmul %h,  %Rᵀ            // [1,2]
+  %c  = arith.addf %a, %b
+  %d  = arith.addf %c, %b_ih
+  %e  = arith.addf %d, %b_hh
+  %hn = math.tanh %e
+  scf.yield %hn
+}
+// Squeeze 只是改 shape，不搬資料 → 直接消除
+%y = linalg.matmul %hT, %Wfcᵀ + %bfc`,
+      d: `「RNN」這顆大 op 對硬體來說是黑盒子，編譯器把它<b>拆成基本運算</b>（MatMul / Add / Tanh）加一個<b>迴圈</b>——
+          就是第 ① 頁那個公式。拆開之後才有機會做最佳化。順便把沒做事的 <b>Squeeze 消除</b>。` },
+    { ph: 'go', name: '外提 + 常數折疊', g: S3, hl: [1, 2], code: `%B' = constant (b_ih + b_hh)              // ✓ 常數折疊：編譯時就加好
+%XW = linalg.matmul %x[5,1], %Wᵀ          // ✓ 迴圈外提：5 步一次算完
+%hT = scf.for %t = 0 to 5 iter_args(%h = %h0) {
+  %b  = linalg.matmul %h, %Rᵀ
+  %c  = arith.addf %XW[%t], %b
+  %e  = arith.addf %c, %B'
+  %hn = math.tanh %e
+  scf.yield %hn
+}`,
+      d: `兩個經典最佳化：<br>• <b>常數折疊</b>：b_ih + b_hh 都是常數 → 編譯時直接算成 B′，執行時少一次 Add。<br>
+          • <b>迴圈不變量外提</b>：xₜ·Wᵀ 不依賴 h，可以把 5 步<b>合成一次大 MatMul</b>拉到迴圈外（大矩陣運算對硬體友善很多）。
+          迴圈裡只剩真正有依賴的 h·Rᵀ。` },
+    { ph: 'go', name: '算子融合', g: S4, hl: [3], code: `%XW = linalg.matmul %x, %Wᵀ
+%hT = scf.for %t = 0 to 5 iter_args(%h = %h0) {
+  %hn = fused_rnn_cell(%h, %R, %XW[%t], %B')    // 1 個 kernel
+  scf.yield %hn
+}
+%y = linalg.matmul %hT, %Wfcᵀ + %bfc`,
+      d: `<b>Operator Fusion（算子融合）</b>是 AI compiler 最重要的招之一。沒融合時：MatMul 寫結果到記憶體 → Add 讀出來、寫回 → Tanh 再讀、再寫。
+          融合成一個 kernel 後，<b>中間結果留在暫存器</b>，省掉記憶體往返和 kernel 啟動成本。AI 運算常常卡在「搬資料」而不是「計算」，所以效果很大。` },
+    { ph: 'lo', name: 'Lowering 成迴圈', g: S4, hl: [], code: `// 張量運算 → 純迴圈 + 純量運算（接近 C）
+for (int t = 0; t < 5; t++) {
+  float hn[2];
+  for (int i = 0; i < 2; i++) {
+    float acc = XW[t][i] + Bp[i];
+    for (int k = 0; k < 2; k++)
+      acc += R[i][k] * h[k];
+    hn[i] = tanhf(acc);
+  }
+  h[0] = hn[0];  h[1] = hn[1];
+}`,
+      d: `<b>Lowering</b>：一層層降低抽象程度。「矩陣乘法」這種高階概念被翻成具體的 <b>for 迴圈 + 記憶體位址存取</b>。
+          到這裡已經很像你手寫的 C 了，但還沒考慮硬體特性。` },
+    { ph: 'lo', name: '迴圈最佳化', g: S4, hl: [3, 4, 5, 6, 7], code: `// hidden=2 太小 → i、k 迴圈完全展開 (unroll)，h 放暫存器
+// R 是常數 → 直接寫進指令 (R00..R11)
+float h0 = 0, h1 = 0;
+for (int t = 0; t < 5; t++) {
+  float a0 = XW[t][0] + Bp[0] + R00*h0 + R01*h1;
+  float a1 = XW[t][1] + Bp[1] + R10*h0 + R11*h1;
+  h0 = tanhf(a0);   h1 = tanhf(a1);
+}
+// 若真實模型 hidden=512：改做 tiling（切塊放進 cache）
+// + vectorize（SIMD 一次算 4~16 個）+ 多核 / 多 thread 平行`,
+      d: `依照<b>目標硬體</b>調整迴圈：<b>unroll</b>（展開）、<b>tiling</b>（切塊塞進 cache / SRAM）、<b>vectorize</b>（用 SIMD / Tensor Core）、<b>parallelize</b>。
+          TVM 這類編譯器甚至會<b>自動搜尋 (auto-tuning)</b> 幾千種切法，實測挑最快的。` },
+    { ph: 'be', name: '產生機器碼', g: S4, hl: [4, 5, 6], code: `; target = arm64 (例：Apple M 系列 CPU)
+.LBB0_1:                          ; for t
+  ldr    d2, [x0], #8             ; 載入 XW[t][0..1]+B′
+  fmul   v3.2s, v1.2s, v4.s[0]    ; R[:,0] * h0   (SIMD 同時算 2 個)
+  fmla   v3.2s, v5.2s, v4.s[1]    ; += R[:,1] * h1
+  fadd   v3.2s, v3.2s, v2.2s      ; + XW[t] + B′
+  bl     _tanh_approx_v2          ; 向量化 tanh 近似
+  subs   w8, w8, #1
+  b.ne   .LBB0_1`,
+      d: `<b>後端 Codegen</b>：通常交給 <b>LLVM</b>（CPU）、<b>PTX/CUDA</b>（NVIDIA GPU）、或晶片廠自己的後端（NPU/DSP），產生真正的機器指令。
+          <b>同一份 IR，換 target 就換後端</b>——這就是 compiler 的價值：模型只寫一次，到處都能跑得快。` },
+    { ph: 'rt', name: 'Runtime 執行', g: S4, hl: [], code: null,
+      d: `最後打包成一個可執行模組（例如 .so / .vmfb / engine 檔），<b>Runtime</b> 負責載入、事先配置好記憶體（因為 shape 都已知）、依序啟動 kernel。
+          下面是「直接逐個 op 執行」和「編譯後」的 kernel 呼叫次數對比（示意）：` },
+  ];
+
+  const pipe = $('#pipe');
+  stages.forEach((s, i) => {
+    const c = document.createElement('button'); c.className = 'chip'; c.style.setProperty('--g', PH[s.ph][1]);
+    c.textContent = `${i + 1}. ${s.name}`; c.onclick = () => st.go(i); pipe.appendChild(c);
+  });
+  const g = makeGraph($('#g2'), 475), d = $('#d2');
+  let lastG = null;
+  const st = stepper($('#c2'), stages.length, i => {
+    const s = stages[i];
+    [...pipe.children].forEach((c, k) => { c.classList.toggle('on', k === i); c.classList.toggle('done', k < i); });
+    if (s.g !== lastG) { g.setStage(s.g, lastG !== null); lastG = s.g; }
+    d.innerHTML = `<div class="fade"><div class="phase" style="--g:${PH[s.ph][1]}">${PH[s.ph][0]}</div>
+      <div class="title">${i + 1}. ${s.name}</div><div class="desc">${s.d}</div>
+      ${s.code ? '<pre class="code" id="ir"></pre>' : '<div id="tl"></div>'}</div>`;
+    if (s.code) { const p = $('#ir'); if (s.hl.length) p.classList.add('focus'); codeBlock(p, s.code, s.hl); }
+    else {
+      const tl = $('#tl');
+      const row = (lab, list) => {
+        let h = `<div class="tl"><div class="lab">${lab}</div><div class="bar">`;
+        list.forEach(([w, c], k) => h += `<div class="k" title="kernel" style="width:${w}px;background:${c};animation-delay:${k * 35}ms"></div>`);
+        return h + '</div></div>';
+      };
+      const eager = [];
+      for (let t = 0; t < 5; t++) ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-3)', 'var(--chart-3)', 'var(--chart-5)'].forEach(c => eager.push([10, c]));
+      eager.push([10, 'var(--chart-2)'], [10, 'var(--chart-3)']);
+      tl.innerHTML = row('逐 op 執行（未編譯）：37 次 kernel 呼叫，每次都把中間結果寫回記憶體', eager) +
+        row('編譯後：3 次（大 MatMul → Fused RNN 迴圈 → Gemm），中間值留在暫存器', [[40, 'var(--chart-2)'], [120, 'var(--chart-4)'], [30, 'var(--chart-2)']]) +
+        `<div class="desc" style="margin-top:10px"><b>總結整條流程：</b> PyTorch → ONNX（交換格式）→ 前端解析成 IR → 圖最佳化（拆解、折疊、融合）→ Lowering 成迴圈 → 依硬體最佳化 → 產生機器碼 → Runtime 執行。</div>`;
+    }
+  }, 3800);
+})();
+
+/* tabs */
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('on', i == b.dataset.t));
+  window.dispatchEvent(new Event('resize'));
+});
+</script>
+</body>
+</html>
