@@ -1,4 +1,4 @@
-# learning-ai-compilers
+# learning-ai
 
 用互動動畫學 AI Compiler 怎麼運作，以一個極小的 RNN 模型為例。
 
